@@ -11,6 +11,8 @@ DEFAULT_PROFILE = {
     "include_mixed": True,
 }
 
+PLAYLIST_NAMES = ("Hype", "Chill", "Mixed")
+
 
 def normalize_title(title: str) -> str:
     """Normalize a song title for comparisons."""
@@ -105,34 +107,35 @@ def merge_playlists(a: PlaylistMap, b: PlaylistMap) -> PlaylistMap:
         merged[key].extend(b.get(key, []))
     return merged
 
+def _flatten(playlists: PlaylistMap) -> List[Song]:
+    """Return a flattened list of all songs in a playlist map."""
+    return [song for songs in playlists.values() for song in songs]
+
+def _avg_energy(songs: List[Song]) -> float:
+    """Return the average energy of a list of songs."""
+    if songs:
+        return sum(song.get("energy", 0) for song in songs) / len(songs)
+    return 0.0
+
+def _hype_ratio(playlists: PlaylistMap) -> float:
+    """Return the ratio of hype songs to total songs."""
+    total = sum(len(playlists.get(name, [])) for name in PLAYLIST_NAMES)
+    if total:
+        return len(playlists.get("Hype", [])) / total
+    return 0.0
 
 def compute_playlist_stats(playlists: PlaylistMap) -> Dict[str, object]:
     """Compute statistics across all playlists."""
-    all_songs: List[Song] = []
-    for songs in playlists.values():
-        all_songs.extend(songs)
+    songs = _flatten(playlists)
+    counts = {name.lower() + "_count": len(playlists.get(name, [])) for name in PLAYLIST_NAMES}
 
-    hype = playlists.get("Hype", [])
-    chill = playlists.get("Chill", [])
-    mixed = playlists.get("Mixed", [])
-
-    total = len(all_songs)
-    hype_ratio = len(hype) / total if total > 0 else 0.0
-
-    avg_energy = 0.0
-    if all_songs:
-        total_energy = sum(song.get("energy", 0) for song in all_songs)
-        avg_energy = total_energy / len(all_songs)
-
-    top_artist, top_count = most_common_artist(all_songs)
+    top_artist, top_count = most_common_artist(songs)
 
     return {
-        "total_songs": len(all_songs),
-        "hype_count": len(hype),
-        "chill_count": len(chill),
-        "mixed_count": len(mixed),
-        "hype_ratio": hype_ratio,
-        "avg_energy": avg_energy,
+        "total_songs": len(songs),
+        **counts,
+        "hype_ratio": _hype_ratio(playlists),
+        "avg_energy": _avg_energy(songs),
         "top_artist": top_artist,
         "top_artist_count": top_count,
     }
